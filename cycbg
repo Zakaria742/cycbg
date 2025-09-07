@@ -1,0 +1,85 @@
+#!/bin/bash
+
+if [[ $1 == "-p" ]]
+then
+        path=$2
+	echo "Your path is : $2"
+        echo "Be sure that you entered the absolute path"
+        echo "You can check the saved path in ~/.config/cycle/path"
+        if [[ -d ~/.config/cycle ]];then
+                        echo "$path" > ~/.config/cycle/path
+        else
+		echo "Cycle config file not found. Creating cycle folder..."
+		sleep 2s
+                mkdir ~/.config/cycle
+                echo "$path" > ~/.config/cycle/path
+        fi
+	echo "" > ~/.config/cycle/Content.txt
+        echo "1" > ~/.config/cycle/Count.txt
+        exit 0;
+fi
+
+path=$(cat ~/.config/cycle/path 2>/dev/null)
+if [[ -z $path ]]
+then
+	echo "Path was not specified"
+		echo "Please use: 'cycle_bg -p <absolute_path>' to specifie one before proceeding."
+	exit -1
+fi
+#Checking for user's own image;
+if [[ $1 == '-i' ]]
+then
+	shift # shifts the arguments to the left (i.e: before_shift : $1=1, $2=2. after : $1=2, $2=)
+    picture=$1
+    m=$2
+    if [[ -z $2 ]];then
+        m="fill"
+    fi
+    if [[ -f "$path/$picture" ]];then
+    pkill swaybg
+    echo "Image Found!"
+    echo $picture
+    swaybg -i "$path/$picture" -m $m &
+    ~/ch_bg_vc.sh $picture #A little audio, comment it to turn it off;
+    exit 0
+    fi
+    echo "Sorry, I couldn't find the picture you requested, Please recheck the name of the picture"
+    exit -1
+fi
+ls "$path" | grep -e .png -e .jpg -e .gif -e .jpeg > ~/.config/cycle/Content.txt
+
+#Following the current wallpaper
+totalCount=$(wc -l ~/.config/cycle/Content.txt | grep -oE "[0-9]" | tr -d '\n')
+currentCount=$(cat ~/.config/cycle/Count.txt)
+current_wallpaper=$(sed -n "$currentCount p" ~/.config/cycle/Content.txt)
+
+echo "$currentCount, $totalCount"
+
+#getting the size of the image
+image_size_w=$(identify -format "%w" "$path"/"$current_wallpaper")
+image_size_h=$(identify -format "%h" "$path"/"$current_wallpaper")
+
+pkill swaybg
+
+#Checking for the last wallpaper on the list;
+if [[ $currentCount -ge $totalCount ]]
+then
+    echo "1" > ~/.config/cycle/Count.txt
+else
+    echo "$((currentCount + 1))" > ~/.config/cycle/Count.txt
+fi
+
+#Using the best mode for the image, replace '1920' with your monitor's width;
+mode="fill"
+if [[ $image_size_h -ge $image_size_w ]]
+then
+    echo "Width: $image_size_w, Height: $image_size_w"
+    mode="tile"
+elif [[ $image_size_w -gt $image_size_h ]]
+then
+    if [[ $image_size_w -gt 1920 ]]
+    then
+        mode="stretch"
+    fi
+fi
+swaybg -i "$path"/"$current_wallpaper" -m $mode &
